@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">ImageLock</string>
+
+    <!-- Strings related to login -->
+    <string name="prompt_username">Username</string>
+    <string name="prompt_password">Password</string>
+    <string name="action_sign_up">Sign Up</string>
+    <string name="action_login">Login</string>
+    <string name="error_username_taken">This username is already taken</string>
+    <string name="error_invalid_username">This username is invalid</string>
+    <string name="error_account_not_recognized">This account isn\'t recognized</string>
+    <string name="error_invalid_password">This password is too short</string>
+    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_field_required">This field is required</string>
+
+    <!--Strings related to gallery-->
+    <string name="gallery">Gallery</string>
+    <string name="select_all_action">Select All</string>
+    <string name="share_action">Share</string>
+    <string name="options_action">Options</string>
+    <string name="camera_action">Camera</string>
+    <string name="delete_action">Delete</string>
+    <string name="action_logout">Logout</string>
+
+    <!--Strings related to image-->
+    <string name="back_arrow">Back</string>
+</resources>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:id="@+id/action_camera"
+        android:title="@string/camera_action"
+        android:icon="@drawable/ic_photo_camera_white_24dp"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/options"
+        android:title="@string/options_action"
+        android:orderInCategory="101"
+        app:showAsAction="always"
+        android:icon="@drawable/ic_more_vert_white_24dp">
+
+        <menu>
+
+            <item
+                android:id="@+id/action_select_all"
+                android:title="@string/select_all_action"
+                app:showAsAction="ifRoom" />
+
+            <item
+                android:id="@+id/action_logout"
+                android:title="@string/action_logout"
+                app:showAsAction="ifRoom" />
+
+        </menu>
+
+    </item>
+
+</menu>

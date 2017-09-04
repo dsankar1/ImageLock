@@ -1,0 +1,57 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 26
+    buildToolsVersion "26.0.1"
+    defaultConfig {
+        applicationId "com.appdomain.imagelock"
+        minSdkVersion 19
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile 'com.android.support:appcompat-v7:26.+'
+    compile 'com.android.support:design:26.+'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    testCompile 'junit:junit:4.12'
+    compile files('libs/aws-android-sdk-sqs-2.4.7.jar')
+    compile files('libs/aws-android-sdk-sns-2.4.7.jar')
+    compile files('libs/aws-android-sdk-ses-2.4.7.jar')
+    compile files('libs/aws-android-sdk-sdb-2.4.7.jar')
+    compile files('libs/aws-android-sdk-s3-2.4.7.jar')
+    compile files('libs/aws-android-sdk-rekognition-2.4.7.jar')
+    compile files('libs/aws-android-sdk-polly-2.4.7.jar')
+    compile files('libs/aws-android-sdk-pinpoint-2.4.7.jar')
+    compile files('libs/aws-android-sdk-mobileanalytics-2.4.7.jar')
+    compile files('libs/aws-android-sdk-machinelearning-2.4.7.jar')
+    compile files('libs/aws-android-sdk-logs-2.4.7.jar')
+    compile files('libs/aws-android-sdk-lambda-2.4.7.jar')
+    compile files('libs/aws-android-sdk-kms-2.4.7.jar')
+    compile files('libs/aws-android-sdk-kinesis-2.4.7.jar')
+    compile files('libs/aws-android-sdk-iot-2.4.7.jar')
+    compile files('libs/aws-android-sdk-ec2-2.4.7.jar')
+    compile files('libs/aws-android-sdk-elb-2.4.7.jar')
+    compile files('libs/aws-android-sdk-ddb-mapper-2.4.7.jar')
+    compile files('libs/aws-android-sdk-ddb-document-2.4.7.jar')
+    compile files('libs/aws-android-sdk-ddb-2.4.7.jar')
+    compile files('libs/aws-android-sdk-core-2.4.7.jar')
+    compile files('libs/aws-android-sdk-cognitoidentityprovider-2.4.7.jar')
+    compile files('libs/aws-android-sdk-cognito-2.4.7.jar')
+    compile files('libs/aws-android-sdk-cloudwatch-2.4.7.jar')
+    compile files('libs/aws-android-sdk-autoscaling-2.4.7.jar')
+    compile files('libs/aws-android-sdk-apigateway-core-2.4.7.jar')
+}
