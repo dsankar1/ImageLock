@@ -18,8 +18,11 @@ import android.util.SparseBooleanArray;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
@@ -35,6 +38,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -46,6 +50,7 @@ public class Gallery extends AppCompatActivity {
 
     private Toolbar galleryToolBar;
     private ListView galleryListView;
+    private ProgressBar galleryProgressBar;
 
     private String username, password, prefix, authorities;
     private File localFilesFolder;
@@ -64,6 +69,8 @@ public class Gallery extends AppCompatActivity {
         galleryToolBar = (Toolbar) findViewById(R.id.galleryToolBar);
         setSupportActionBar(galleryToolBar);
 
+        galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
+
         username = getIntent().getExtras().getString("USERNAME");
         password = getIntent().getExtras().getString("PASSWORD");
         prefix = getIntent().getExtras().getString("PREFIX");
@@ -77,51 +84,7 @@ public class Gallery extends AppCompatActivity {
         transferUtility = new TransferUtility(s3Client, getApplicationContext());
 
         galleryListView = (ListView) findViewById(R.id.galleryListView);
-        galleryListView.setAdapter(galleryAdapter);
-        galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
-        galleryListView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
-            @Override
-            public void onItemCheckedStateChanged(android.view.ActionMode actionMode, int i, long l, boolean b) {
-                final int checkedCount = galleryListView.getCheckedItemCount();
-                actionMode.setTitle(checkedCount + " selected");
-                if (test) Log.i("Checked", i + " " + galleryListView.isItemChecked(i));
-                galleryAdapter.setSelection(i, galleryListView.isItemChecked(i));
-            }
-
-            @Override
-            public boolean onCreateActionMode(android.view.ActionMode actionMode, Menu menu) {
-                actionMode.getMenuInflater().inflate(R.menu.gallery_cab_menu, menu);
-                return true;
-            }
-
-            @Override
-            public boolean onActionItemClicked(android.view.ActionMode actionMode, MenuItem item) {
-                switch (item.getItemId()) {
-                    case R.id.action_delete:
-                        delete();
-                        actionMode.finish();
-                        return true;
-                    case R.id.action_select_all:
-                        selectAll();
-                        return true;
-                    case R.id.action_logout:
-                        logout();
-                        return true;
-                    default:
-                        return true;
-                }
-            }
-
-            @Override
-            public void onDestroyActionMode(android.view.ActionMode actionMode) {
-                galleryAdapter.removeSelection();
-            }
-
-            @Override
-            public boolean onPrepareActionMode(android.view.ActionMode actionMode, Menu menu) {
-                return false;
-            }
-        });
+        configureListView();
 
         new DownloadTask().execute();
     }
@@ -162,7 +125,7 @@ public class Gallery extends AppCompatActivity {
         Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (cameraIntent.resolveActivity(getPackageManager()) != null && hasCameraPermission()) {
             mostRecentCameraSnap = createImageFile();
-            Uri imageUri = FileProvider.getUriForFile(this, authorities, mostRecentCameraSnap);
+            Uri imageUri = FileProvider.getUriForFile(getApplicationContext(), authorities, mostRecentCameraSnap);
             cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
             startActivityForResult(cameraIntent, CAMERA);
         }
@@ -205,6 +168,67 @@ public class Gallery extends AppCompatActivity {
     }
 
     // <-HELPER FUNCTIONS->
+    private void configureListView() {
+        galleryListView.setAdapter(galleryAdapter);
+        galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        galleryListView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
+            @Override
+            public void onItemCheckedStateChanged(android.view.ActionMode actionMode, int i, long l, boolean b) {
+                final int checkedCount = galleryListView.getCheckedItemCount();
+                if (checkedCount > 0) {
+                    actionMode.setTitle(checkedCount + " selected");
+                }
+                if (test) Log.i("Checked", i + " " + galleryListView.isItemChecked(i));
+                galleryAdapter.setSelection(i, galleryListView.isItemChecked(i));
+            }
+
+            @Override
+            public boolean onCreateActionMode(android.view.ActionMode actionMode, Menu menu) {
+                actionMode.getMenuInflater().inflate(R.menu.gallery_cab_menu, menu);
+                return true;
+            }
+
+            @Override
+            public boolean onActionItemClicked(android.view.ActionMode actionMode, MenuItem item) {
+                switch (item.getItemId()) {
+                    case R.id.action_delete:
+                        delete();
+                        actionMode.finish();
+                        return true;
+                    case R.id.action_select_all:
+                        selectAll();
+                        return true;
+                    case R.id.action_logout:
+                        logout();
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+
+            @Override
+            public void onDestroyActionMode(android.view.ActionMode actionMode) {
+                galleryAdapter.removeSelection();
+            }
+
+            @Override
+            public boolean onPrepareActionMode(android.view.ActionMode actionMode, Menu menu) {
+                return false;
+            }
+        });
+
+        galleryListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                File image = images.get(i);
+                Uri imageUri = FileProvider.getUriForFile(getApplicationContext(), authorities, image);
+                Intent imageIntent = new Intent(getApplicationContext(), Image.class);
+                imageIntent.putExtra("URI", imageUri.toString());
+                startActivity(imageIntent);
+            }
+        });
+    }
+
     private File createImageFile() {
         String filename = "IMG_" + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".jpg";
         localFilesFolder.mkdir();
@@ -229,6 +253,7 @@ public class Gallery extends AppCompatActivity {
     private synchronized void updateImages() {
         images.clear();
         images.addAll(Arrays.asList(localFilesFolder.listFiles()));
+        Collections.reverse(images);
         if (test) Log.i("updateImages", images.toString());
         galleryAdapter.notifyDataSetChanged();
     }
@@ -253,6 +278,7 @@ public class Gallery extends AppCompatActivity {
         @Override
         protected Boolean doInBackground(Void... voids) {
             try {
+                deleteLocalUserFiles();
                 downloadImages();
                 return true;
             }
@@ -264,7 +290,7 @@ public class Gallery extends AppCompatActivity {
 
         private void downloadImages() throws Exception {
             ObjectListing listing = s3Client.listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(prefix));
-            List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+            final List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 
             for (S3ObjectSummary summary : summaries) {
                 String key = summary.getKey();
@@ -276,8 +302,12 @@ public class Gallery extends AppCompatActivity {
                     observer.setTransferListener(new TransferListener() {
                         @Override
                         public void onStateChanged(int i, TransferState transferState) {
-                            if (transferState == TransferState.COMPLETED) {
+                            if (transferState == TransferState.COMPLETED
+                                    && localFilesFolder.listFiles().length >= summaries.size() - 1) {
                                 updateImages();
+                                galleryListView.setVisibility(View.VISIBLE);
+                                galleryProgressBar.setVisibility(View.GONE);
+
                             }
                         }
 

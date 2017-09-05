@@ -16,6 +16,10 @@
         <item name="colorControlHighlight">@color/colorAccent</item>
     </style>
 
+    <style name="AppTheme.ImageToolbar" parent="AppTheme.AppBarOverlay">
+        <item name="actionModeCloseDrawable">@drawable/ic_arrow_back_white_24dp</item>
+    </style>
+
     <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light">
         <item name="android:textColor">@color/colorPrimary</item>
     </style>

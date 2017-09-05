@@ -10,21 +10,37 @@
 
     <include layout="@layout/gallery_toolbar"/>
 
-    <ListView
-        android:id="@+id/galleryListView"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/lightGrey"
-        android:clickable="true"
-        android:drawSelectorOnTop="true"
-        android:divider="@android:color/transparent"
-        android:dividerHeight=".5dp"
-        android:paddingTop=".5dp"
-        android:focusable="true"
-        android:gravity="center"
-        android:clipToPadding="false"
-        android:scrollbarStyle="outsideOverlay"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        tools:context="com.sankar.appdomain.Home"/>
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <ProgressBar
+            android:id="@+id/galleryProgressBar"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"/>
+
+        <ListView
+            android:id="@+id/galleryListView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/lightGrey"
+            android:clickable="true"
+            android:drawSelectorOnTop="true"
+            android:divider="@android:color/transparent"
+            android:dividerHeight=".5dp"
+            android:paddingTop=".5dp"
+            android:focusable="true"
+            android:gravity="center"
+            android:clipToPadding="false"
+            android:scrollbarStyle="outsideOverlay"
+            android:visibility="gone"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior"
+            tools:context="com.sankar.appdomain.Home"/>
+
+    </LinearLayout>
 
 </LinearLayout>
