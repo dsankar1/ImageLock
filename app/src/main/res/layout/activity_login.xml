@@ -47,6 +47,7 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_username"
                     android:inputType="text"
+                    android:maxLength="20"
                     android:maxLines="1" />
 
             </android.support.design.widget.TextInputLayout>
@@ -62,6 +63,7 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_password"
                     android:inputType="textPassword"
+                    android:maxLength="20"
                     android:maxLines="1" />
 
             </android.support.design.widget.TextInputLayout>

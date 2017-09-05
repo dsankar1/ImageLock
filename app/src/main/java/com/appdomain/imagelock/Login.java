@@ -1,11 +1,7 @@
 package com.appdomain.imagelock;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.annotation.TargetApi;
 import android.content.Intent;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
@@ -111,31 +107,14 @@ public class Login extends AppCompatActivity {
         return password.length() > 4;
     }
 
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-    private void showProgress(final boolean show) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-
-            loginForm.setVisibility(show ? View.GONE : View.VISIBLE);
-            loginForm.animate().setDuration(shortAnimTime).alpha(
-                    show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    loginForm.setVisibility(show ? View.GONE : View.VISIBLE);
-                }
-            });
-
-            loginProgressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-            loginProgressBar.animate().setDuration(shortAnimTime).alpha(
-                    show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    loginProgressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-                }
-            });
-        } else {
-            loginProgressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-            loginForm.setVisibility(show ? View.GONE : View.VISIBLE);
+    private synchronized void showProgress(boolean show) {
+        if (show) {
+            loginProgressBar.setVisibility(View.VISIBLE);
+            loginForm.setVisibility(View.GONE);
+        }
+        else {
+            loginProgressBar.setVisibility(View.GONE);
+            loginForm.setVisibility(View.VISIBLE);
         }
     }
 
@@ -204,7 +183,7 @@ public class Login extends AppCompatActivity {
                 URL url = new URL("http://10.0.2.2:3000/api/user/register");
                 JSONObject user = new JSONObject();
                 user.put("username", username);
-                user.put("password", password);
+                user.put("password", hash(password));
                 user.put("prefix", username + "/");
 
                 JSONObject response = sendHttpRequest(url, "POST", user);
@@ -222,7 +201,7 @@ public class Login extends AppCompatActivity {
                 URL url = new URL("http://10.0.2.2:3000/api/user/validate");
                 JSONObject user = new JSONObject();
                 user.put("username", username);
-                user.put("password", password);
+                user.put("password", hash(password));
 
                 JSONObject response = sendHttpRequest(url, "POST", user);
                 boolean result = response.getBoolean("valid");
@@ -279,4 +258,5 @@ public class Login extends AppCompatActivity {
         }
 
     }
+
 }

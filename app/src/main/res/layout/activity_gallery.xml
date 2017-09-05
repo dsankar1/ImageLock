@@ -21,6 +21,7 @@
             style="?android:attr/progressBarStyleLarge"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             android:padding="16dp"/>
 
         <ListView
@@ -37,7 +38,6 @@
             android:gravity="center"
             android:clipToPadding="false"
             android:scrollbarStyle="outsideOverlay"
-            android:visibility="gone"
             app:layout_behavior="@string/appbar_scrolling_view_behavior"
             tools:context="com.sankar.appdomain.Home"/>
 

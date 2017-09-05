@@ -38,7 +38,6 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -252,8 +251,8 @@ public class Gallery extends AppCompatActivity {
 
     private synchronized void updateImages() {
         images.clear();
+        localFilesFolder.mkdir();
         images.addAll(Arrays.asList(localFilesFolder.listFiles()));
-        Collections.reverse(images);
         if (test) Log.i("updateImages", images.toString());
         galleryAdapter.notifyDataSetChanged();
     }
@@ -278,7 +277,6 @@ public class Gallery extends AppCompatActivity {
         @Override
         protected Boolean doInBackground(Void... voids) {
             try {
-                deleteLocalUserFiles();
                 downloadImages();
                 return true;
             }
@@ -291,37 +289,32 @@ public class Gallery extends AppCompatActivity {
         private void downloadImages() throws Exception {
             ObjectListing listing = s3Client.listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(prefix));
             final List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+            Log.i("summaries", summaries.toString());
 
             for (S3ObjectSummary summary : summaries) {
                 String key = summary.getKey();
                 int index = key.lastIndexOf("/") + 1;
-                if (index < key.length()) {
-                    String filename = key.substring(index);
-                    File file = new File(localFilesFolder, filename);
-                    TransferObserver observer = transferUtility.download(bucket, key, file);
-                    observer.setTransferListener(new TransferListener() {
-                        @Override
-                        public void onStateChanged(int i, TransferState transferState) {
-                            if (transferState == TransferState.COMPLETED
-                                    && localFilesFolder.listFiles().length >= summaries.size() - 1) {
-                                updateImages();
-                                galleryListView.setVisibility(View.VISIBLE);
-                                galleryProgressBar.setVisibility(View.GONE);
-
-                            }
+                String filename = key.substring(index);
+                File file = new File(localFilesFolder, filename);
+                TransferObserver observer = transferUtility.download(bucket, key, file);
+                observer.setTransferListener(new TransferListener() {
+                    @Override
+                    public void onStateChanged(int i, TransferState transferState) {
+                        if (transferState == TransferState.COMPLETED) {
+                            updateImages();
                         }
+                    }
 
-                        @Override
-                        public void onProgressChanged(int i, long l, long l1) {
-                            //Stub
-                        }
+                    @Override
+                    public void onProgressChanged(int i, long l, long l1) {
+                        //Stub
+                    }
 
-                        @Override
-                        public void onError(int i, Exception e) {
-                            Log.e("downloadImages", e.toString());
-                        }
-                    });
-                }
+                    @Override
+                    public void onError(int i, Exception e) {
+                        Log.e("downloadImages", e.toString());
+                    }
+                });
             }
         }
 
