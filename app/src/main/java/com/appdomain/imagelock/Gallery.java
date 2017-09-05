@@ -12,14 +12,13 @@ import android.provider.MediaStore;
 import android.support.design.widget.Snackbar;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.view.ActionMode;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.util.SparseBooleanArray;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.AdapterView;
+import android.widget.AbsListView;
 import android.widget.ListView;
 
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -53,7 +52,6 @@ public class Gallery extends AppCompatActivity {
     private File mostRecentCameraSnap;
     private ArrayList<File> images;
     private GalleryAdapter galleryAdapter;
-    private ActionMode actionMode;
 
     private AmazonS3Client s3Client;
     private TransferUtility transferUtility;
@@ -72,21 +70,58 @@ public class Gallery extends AppCompatActivity {
         authorities = getApplicationContext().getPackageName() + ".fileprovider";
         localFilesFolder = getLocalFilesDirectory();
         images = new ArrayList<>();
-        galleryAdapter = new GalleryAdapter(getApplicationContext(), images);
+        galleryAdapter = new GalleryAdapter(getApplicationContext(), R.layout.gallery_item, images);
+
+        s3Client = new AmazonS3Client(new BasicAWSCredentials
+                ("keyId", "secret"));
+        transferUtility = new TransferUtility(s3Client, getApplicationContext());
 
         galleryListView = (ListView) findViewById(R.id.galleryListView);
         galleryListView.setAdapter(galleryAdapter);
-        galleryListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+        galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        galleryListView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
             @Override
-            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-                actionMode = startSupportActionMode(new ActionModeCallback());
+            public void onItemCheckedStateChanged(android.view.ActionMode actionMode, int i, long l, boolean b) {
+                final int checkedCount = galleryListView.getCheckedItemCount();
+                actionMode.setTitle(checkedCount + " selected");
+                if (test) Log.i("Checked", i + " " + galleryListView.isItemChecked(i));
+                galleryAdapter.setSelection(i, galleryListView.isItemChecked(i));
+            }
+
+            @Override
+            public boolean onCreateActionMode(android.view.ActionMode actionMode, Menu menu) {
+                actionMode.getMenuInflater().inflate(R.menu.gallery_cab_menu, menu);
                 return true;
             }
-        });
 
-        s3Client = new AmazonS3Client(new BasicAWSCredentials
-                ("key", "secret"));
-        transferUtility = new TransferUtility(s3Client, getApplicationContext());
+            @Override
+            public boolean onActionItemClicked(android.view.ActionMode actionMode, MenuItem item) {
+                switch (item.getItemId()) {
+                    case R.id.action_delete:
+                        delete();
+                        actionMode.finish();
+                        return true;
+                    case R.id.action_select_all:
+                        selectAll();
+                        return true;
+                    case R.id.action_logout:
+                        logout();
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+
+            @Override
+            public void onDestroyActionMode(android.view.ActionMode actionMode) {
+                galleryAdapter.removeSelection();
+            }
+
+            @Override
+            public boolean onPrepareActionMode(android.view.ActionMode actionMode, Menu menu) {
+                return false;
+            }
+        });
 
         new DownloadTask().execute();
     }
@@ -138,16 +173,35 @@ public class Gallery extends AppCompatActivity {
         }
     }
 
-    private void selectAll() {
-        actionMode = startSupportActionMode(new ActionModeCallback());
-    }
-
     private void logout() {
         Intent login = new Intent(getApplicationContext(), Login.class);
         login.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(login);
         deleteLocalUserFiles();
         this.finish();
+    }
+
+    private void delete() {
+        SparseBooleanArray selected = galleryAdapter.getSelectedImages();
+        ArrayList<File> toDelete = new ArrayList<>();
+        for (int i = 0; i < selected.size(); i++) {
+            if (selected.valueAt(i)) {
+                File image = images.get(selected.keyAt(i));
+                toDelete.add(image);
+                image.delete();
+            }
+        }
+        new DeleteTask().execute(toDelete);
+        updateImages();
+        final Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
+                selected.size() + " Item(s) Deleted", Snackbar.LENGTH_LONG);
+        deleted.show();
+    }
+
+    private void selectAll() {
+        for (int i = 0; i < galleryListView.getCount(); i++) {
+            galleryListView.setItemChecked(i, true);
+        }
     }
 
     // <-HELPER FUNCTIONS->
@@ -180,7 +234,7 @@ public class Gallery extends AppCompatActivity {
     }
 
     private File getLocalFilesDirectory() {
-        File directory = getExternalFilesDir("/dsankar1/");
+        File directory = getExternalFilesDir(prefix);
         if (test) Log.i("getLocalFilesDirectory", directory.getPath());
         directory.mkdir();
         return directory;
@@ -265,9 +319,6 @@ public class Gallery extends AppCompatActivity {
                 @Override
                 public void onStateChanged(int i, TransferState transferState) {
                     if (transferState == TransferState.COMPLETED) {
-                        final Snackbar saved = Snackbar.make(findViewById(android.R.id.content),
-                                "Image Saved", Snackbar.LENGTH_LONG);
-                        saved.show();
                         updateImages();
                     }
                 }
@@ -280,7 +331,7 @@ public class Gallery extends AppCompatActivity {
                 @Override
                 public void onError(int i, Exception e) {
                     final Snackbar saved = Snackbar.make(findViewById(android.R.id.content),
-                            "Image Failed to Save", Snackbar.LENGTH_LONG);
+                            "Image Failed to Upload", Snackbar.LENGTH_LONG);
                     saved.show();
                     Log.e("uploadImage", e.toString());
                 }
@@ -289,32 +340,7 @@ public class Gallery extends AppCompatActivity {
 
     }
 
-    class ActionModeCallback implements ActionMode.Callback {
-
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            mode.getMenuInflater().inflate(R.menu.gallery_cab_menu, menu);
-            return true;
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-            return false;
-        }
-
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-
-            return false;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode) {
-
-        }
-    }
-
-    /*private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Boolean> {
+    private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Boolean> {
 
         @Override
         protected Boolean doInBackground(ArrayList<File>... lists) {
@@ -338,56 +364,5 @@ public class Gallery extends AppCompatActivity {
         }
 
     }
-
-    private class UploadTask extends AsyncTask<Void, Void, Void> {
-
-        private File image;
-
-        public UploadTask(File image) {
-            this.image = image;
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            try {
-                uploadS3Image();
-            }
-            catch (Exception e) {
-                Log.e("Upload", e.toString());
-            }
-            return null;
-        }
-
-        private void uploadS3Image() throws Exception {
-            int index = image.getPath().lastIndexOf("/") + 1;
-            String key = prefix + image.getPath().substring(index);
-            TransferObserver observer = transferUtility.upload(bucket, key, image);
-            observer.setTransferListener(new TransferListener() {
-                @Override
-                public void onStateChanged(int i, TransferState transferState) {
-                    if (transferState == TransferState.COMPLETED) {
-                        final Snackbar saved = Snackbar.make(findViewById(android.R.id.content),
-                                "Image saved", Snackbar.LENGTH_LONG);
-                        saved.show();
-                        updateImages();
-                    }
-                }
-
-                @Override
-                public void onProgressChanged(int i, long l, long l1) {
-
-                }
-
-                @Override
-                public void onError(int i, Exception e) {
-                    final Snackbar saved = Snackbar.make(findViewById(android.R.id.content),
-                            "Image failed to save", Snackbar.LENGTH_LONG);
-                    saved.show();
-                    Log.i("Error", e.toString());
-                }
-            });
-        }
-
-    }*/
 
 }

@@ -3,10 +3,11 @@ package com.appdomain.imagelock;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -14,15 +15,18 @@ import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
-public class GalleryAdapter extends BaseAdapter {
+public class GalleryAdapter extends ArrayAdapter<File> {
 
     private Context context;
     private ArrayList<File> images;
+    private SparseBooleanArray selectedImages;
     private LayoutInflater inflater;
 
-    public GalleryAdapter(Context context, ArrayList<File> images) {
+    public GalleryAdapter(Context context, int resourceId, ArrayList<File> images) {
+        super(context, resourceId, images);
         this.context = context;
         this.images = images;
+        selectedImages = new SparseBooleanArray();
         inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
     }
 
@@ -32,8 +36,8 @@ public class GalleryAdapter extends BaseAdapter {
     }
 
     @Override
-    public Object getItem(int i) {
-        return null;
+    public File getItem(int i) {
+        return images.get(i);
     }
 
     @Override
@@ -59,10 +63,36 @@ public class GalleryAdapter extends BaseAdapter {
         double imageSize = (double)imageFile.length()/1024.0;
 
         holder.title.setText(title);
-        holder.image.setImageBitmap(imageBitmap);
         holder.size.setText(df.format(imageSize) + " kB");
 
+        if (selectedImages.get(i)) {
+            holder.image.setImageResource(R.drawable.ic_check_black_24dp);
+            holder.image.setPadding(30, 30, 30, 30);
+        }
+        else {
+            holder.image.setImageBitmap(imageBitmap);
+        }
+
         return row;
+    }
+
+    public void removeSelection() {
+        selectedImages = new SparseBooleanArray();
+        notifyDataSetChanged();
+    }
+
+    public void setSelection(int position, boolean value) {
+        if (value) {
+            selectedImages.put(position, value);
+        }
+        else {
+            selectedImages.delete(position);
+        }
+        notifyDataSetChanged();
+    }
+
+    public SparseBooleanArray getSelectedImages() {
+        return selectedImages;
     }
 
     public class Holder {
