@@ -16,7 +16,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AbsListView;
@@ -38,6 +37,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -52,8 +52,8 @@ public class Gallery extends AppCompatActivity {
     private ProgressBar galleryProgressBar;
 
     private String username, password, prefix, authorities;
-    private File localFilesFolder;
-    private File mostRecentCameraSnap;
+    private File mostRecentImage;
+    private File localStorage;
     private ArrayList<File> images;
     private GalleryAdapter galleryAdapter;
 
@@ -64,112 +64,61 @@ public class Gallery extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gallery);
-
-        galleryToolBar = (Toolbar) findViewById(R.id.galleryToolBar);
-        setSupportActionBar(galleryToolBar);
-
-        galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
-
-        username = getIntent().getExtras().getString("USERNAME");
-        password = getIntent().getExtras().getString("PASSWORD");
-        prefix = getIntent().getExtras().getString("PREFIX");
-        authorities = getApplicationContext().getPackageName() + ".fileprovider";
-        localFilesFolder = getLocalFilesDirectory();
-        images = new ArrayList<>();
-        galleryAdapter = new GalleryAdapter(getApplicationContext(), R.layout.gallery_item, images);
-
+        // AWS stuff
         s3Client = new AmazonS3Client(new BasicAWSCredentials
                 ("keyId", "secret"));
         transferUtility = new TransferUtility(s3Client, getApplicationContext());
+        // Action Bar stuff
+        galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
+        galleryToolBar = (Toolbar) findViewById(R.id.galleryToolBar);
+        setSupportActionBar(galleryToolBar);
 
+        authorities = getApplicationContext().getPackageName() + ".fileprovider";
+        username = getIntent().getExtras().getString("USERNAME");
+        password = getIntent().getExtras().getString("PASSWORD");
+        prefix = getIntent().getExtras().getString("PREFIX");
+        images = new ArrayList<>();
+        localStorage = new File(getFilesDir(), prefix);
+
+        // List view stuff
         galleryListView = (ListView) findViewById(R.id.galleryListView);
-        configureListView();
+        galleryAdapter = new GalleryAdapter(getApplicationContext(), R.layout.gallery_item, images);
+        galleryListView.setAdapter(galleryAdapter);
+        galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
 
+        createLocalStorage();
+        setListViewEventListeners();
         new DownloadTask().execute();
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == CAMERA && resultCode == RESULT_OK) {
-            new UploadTask().execute(mostRecentCameraSnap);
-        }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.gallery_menu, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.action_camera:
-                launchCamera();
-                return true;
-            case R.id.action_select_all:
-                selectAll();
-                return true;
-            case R.id.action_logout:
-                logout();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
-    // <-PRIMARY FUNCTIONALITY->
-    private void launchCamera() {
-        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (cameraIntent.resolveActivity(getPackageManager()) != null && hasCameraPermission()) {
-            mostRecentCameraSnap = createImageFile();
-            Uri imageUri = FileProvider.getUriForFile(getApplicationContext(), authorities, mostRecentCameraSnap);
-            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-            startActivityForResult(cameraIntent, CAMERA);
+    private synchronized void showProgress(boolean show) {
+        if (show) {
+            galleryProgressBar.setVisibility(View.VISIBLE);
+            galleryListView.setVisibility(View.GONE);
         }
         else {
-            final Snackbar cameraPermission = Snackbar.make(findViewById(android.R.id.content),
-                    "Unable to Open Camera", Snackbar.LENGTH_LONG);
-            cameraPermission.show();
+            galleryProgressBar.setVisibility(View.GONE);
+            galleryListView.setVisibility(View.VISIBLE);
         }
     }
 
-    private void logout() {
-        Intent login = new Intent(getApplicationContext(), Login.class);
-        login.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(login);
-        deleteLocalUserFiles();
-        this.finish();
+    private void createLocalStorage() {
+        if (localStorage.exists()) return;
+        localStorage.mkdir();
     }
 
-    private void delete() {
-        SparseBooleanArray selected = galleryAdapter.getSelectedImages();
-        ArrayList<File> toDelete = new ArrayList<>();
-        for (int i = 0; i < selected.size(); i++) {
-            if (selected.valueAt(i)) {
-                File image = images.get(selected.keyAt(i));
-                toDelete.add(image);
+    private void deleteLocalStorage() {
+        if (localStorage.exists()) {
+            for (File image : localStorage.listFiles()) {
+                Log.i("Deleted on Logout", image.getPath());
                 image.delete();
             }
-        }
-        new DeleteTask().execute(toDelete);
-        updateImages();
-        final Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
-                selected.size() + " Item(s) Deleted", Snackbar.LENGTH_LONG);
-        deleted.show();
-    }
-
-    private void selectAll() {
-        for (int i = 0; i < galleryListView.getCount(); i++) {
-            galleryListView.setItemChecked(i, true);
+            Log.i("Deleting Directory", localStorage.getPath());
+            localStorage.delete();
         }
     }
 
-    // <-HELPER FUNCTIONS->
-    private void configureListView() {
-        galleryListView.setAdapter(galleryAdapter);
-        galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+    private void setListViewEventListeners() {
         galleryListView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
             @Override
             public void onItemCheckedStateChanged(android.view.ActionMode actionMode, int i, long l, boolean b) {
@@ -178,7 +127,7 @@ public class Gallery extends AppCompatActivity {
                     actionMode.setTitle(checkedCount + " selected");
                 }
                 if (test) Log.i("Checked", i + " " + galleryListView.isItemChecked(i));
-                galleryAdapter.setSelection(i, galleryListView.isItemChecked(i));
+                galleryAdapter.setSelectedState(i, galleryListView.isItemChecked(i));
             }
 
             @Override
@@ -189,6 +138,7 @@ public class Gallery extends AppCompatActivity {
 
             @Override
             public boolean onActionItemClicked(android.view.ActionMode actionMode, MenuItem item) {
+                if (!isConnectedToInternet()) logout();
                 switch (item.getItemId()) {
                     case R.id.action_delete:
                         delete();
@@ -207,7 +157,7 @@ public class Gallery extends AppCompatActivity {
 
             @Override
             public void onDestroyActionMode(android.view.ActionMode actionMode) {
-                galleryAdapter.removeSelection();
+                galleryAdapter.removeAllSelections();
             }
 
             @Override
@@ -228,16 +178,92 @@ public class Gallery extends AppCompatActivity {
         });
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CAMERA && resultCode == RESULT_OK) {
+            updateImages();
+            new UploadTask().execute(mostRecentImage);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.gallery_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (!isConnectedToInternet()) logout();
+        switch (item.getItemId()) {
+            case R.id.action_camera:
+                launchCamera();
+                return true;
+            case R.id.action_select_all:
+                selectAll();
+                return true;
+            case R.id.action_logout:
+                logout();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
     private File createImageFile() {
         String filename = "IMG_" + new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".jpg";
-        localFilesFolder.mkdir();
-        File file = new File(localFilesFolder, filename);
-        return file;
+        return new File(localStorage, filename);
+    }
+
+    private void launchCamera() {
+        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (cameraIntent.resolveActivity(getPackageManager()) != null && hasCameraPermission()) {
+            mostRecentImage = createImageFile();
+            createLocalStorage();
+            Uri imageUri = FileProvider.getUriForFile(getApplicationContext(), authorities, mostRecentImage);
+            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+            startActivityForResult(cameraIntent, CAMERA);
+        }
+        else {
+            Snackbar cameraPermission = Snackbar.make(findViewById(android.R.id.content),
+                    "Unable to Open Camera", Snackbar.LENGTH_LONG);
+            cameraPermission.show();
+        }
+    }
+
+    private void logout() {
+        deleteLocalStorage();
+        Intent login = new Intent(getApplicationContext(), Login.class);
+        login.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(login);
+        this.finish();
+    }
+
+    private void delete() {
+        SparseBooleanArray selected = galleryAdapter.getSelectedImages();
+        ArrayList<File> toDelete = new ArrayList<>();
+        for (int i = 0; i < selected.size(); i++) {
+            if (selected.valueAt(i)) {
+                File image = images.get(selected.keyAt(i));
+                toDelete.add(image);
+                image.delete();
+            }
+        }
+        new DeleteTask().execute(toDelete);
+        updateImages();
+        Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
+                selected.size() + " Item(s) Deleted", Snackbar.LENGTH_LONG);
+        deleted.show();
+    }
+
+    private void selectAll() {
+        for (int i = 0; i < galleryListView.getCount(); i++) {
+            galleryListView.setItemChecked(i, true);
+        }
     }
 
     private boolean hasCameraPermission() {
-        String permission = "android.permission.CAMERA";
-        int res = getApplicationContext().checkCallingOrSelfPermission(permission);
+        int res = getApplicationContext().checkCallingOrSelfPermission("android.permission.CAMERA");
         return (res == PackageManager.PERMISSION_GRANTED);
     }
 
@@ -251,57 +277,51 @@ public class Gallery extends AppCompatActivity {
 
     private synchronized void updateImages() {
         images.clear();
-        localFilesFolder.mkdir();
-        images.addAll(Arrays.asList(localFilesFolder.listFiles()));
-        if (test) Log.i("updateImages", images.toString());
+        createLocalStorage();
+        images.addAll(Arrays.asList(localStorage.listFiles()));
+        Collections.reverse(images);
         galleryAdapter.notifyDataSetChanged();
     }
 
-    private File getLocalFilesDirectory() {
-        File directory = getExternalFilesDir(prefix);
-        if (test) Log.i("getLocalFilesDirectory", directory.getPath());
-        directory.mkdir();
-        return directory;
-    }
-
-    private void deleteLocalUserFiles() {
-        for (File file : localFilesFolder.listFiles()) {
-            file.delete();
-        }
-        localFilesFolder.delete();
-    }
-
-    // <-ASYNCHRONOUS STUFF->
-    private class DownloadTask extends AsyncTask<Void, Void, Boolean> {
+    private class DownloadTask extends AsyncTask<Void, Void, Void> {
 
         @Override
-        protected Boolean doInBackground(Void... voids) {
-            try {
-                downloadImages();
-                return true;
-            }
-            catch (Exception e) {
-                Log.e("downloadImages", e.toString());
-                return false;
-            }
+        protected void onPreExecute() {
+            showProgress(true);
         }
 
-        private void downloadImages() throws Exception {
-            ObjectListing listing = s3Client.listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(prefix));
-            final List<S3ObjectSummary> summaries = listing.getObjectSummaries();
-            Log.i("summaries", summaries.toString());
+        @Override
+        protected Void doInBackground(Void... voids) {
+            downloadImages();
+            return null;
+        }
 
+        private void downloadImages() {
+            ObjectListing listing = s3Client.listObjects(new ListObjectsRequest()
+                            .withBucketName(bucket)
+                            .withPrefix(prefix));
+            final List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+            if (summaries.isEmpty()){
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        showProgress(false);
+                    }
+                });
+            }
             for (S3ObjectSummary summary : summaries) {
                 String key = summary.getKey();
-                int index = key.lastIndexOf("/") + 1;
-                String filename = key.substring(index);
-                File file = new File(localFilesFolder, filename);
-                TransferObserver observer = transferUtility.download(bucket, key, file);
+                String name = new File(key).getName();
+                File image = new File(localStorage, name);
+                TransferObserver observer = transferUtility.download(bucket, key, image);
                 observer.setTransferListener(new TransferListener() {
                     @Override
                     public void onStateChanged(int i, TransferState transferState) {
                         if (transferState == TransferState.COMPLETED) {
-                            updateImages();
+                            if (localStorage.listFiles().length == summaries.size()) {
+                                showProgress(false);
+                                updateImages();
+                            }
                         }
                     }
 
@@ -312,7 +332,8 @@ public class Gallery extends AppCompatActivity {
 
                     @Override
                     public void onError(int i, Exception e) {
-                        Log.e("downloadImages", e.toString());
+                        showProgress(false);
+                        Log.e("ERROR", e.toString());
                     }
                 });
             }
@@ -320,30 +341,22 @@ public class Gallery extends AppCompatActivity {
 
     }
 
-    private class UploadTask extends AsyncTask<File, Void, Boolean> {
+    private class UploadTask extends AsyncTask<File, Void, Void> {
 
         @Override
-        protected Boolean doInBackground(File... images) {
-            try {
-                uploadImage(images[0]);
-                return true;
-            }
-            catch (Exception e) {
-                Log.e("uploadImage", e.toString());
-                return false;
-            }
+        protected Void doInBackground(File... images) {
+            uploadImage(images[0]);
+            return null;
         }
 
-        private void uploadImage(File image) throws Exception {
-            int index = image.getPath().lastIndexOf("/") + 1;
-            String key = prefix + image.getPath().substring(index);
+        private void uploadImage(File image) {
+            String key = prefix + image.getName();
+            Log.i("Uploaded Key", key);
             TransferObserver observer = transferUtility.upload(bucket, key, image);
             observer.setTransferListener(new TransferListener() {
                 @Override
                 public void onStateChanged(int i, TransferState transferState) {
-                    if (transferState == TransferState.COMPLETED) {
-                        updateImages();
-                    }
+                    // Stub
                 }
 
                 @Override
@@ -353,37 +366,27 @@ public class Gallery extends AppCompatActivity {
 
                 @Override
                 public void onError(int i, Exception e) {
-                    final Snackbar saved = Snackbar.make(findViewById(android.R.id.content),
-                            "Image Failed to Upload", Snackbar.LENGTH_LONG);
-                    saved.show();
-                    Log.e("uploadImage", e.toString());
+                    final Snackbar error = Snackbar.make(findViewById(android.R.id.content),
+                            "Failed to Upload Image", Snackbar.LENGTH_LONG);
+                    error.show();
+                    Log.e("ERROR", e.toString());
                 }
             });
         }
 
     }
 
-    private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Boolean> {
+    private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Void> {
 
         @Override
-        protected Boolean doInBackground(ArrayList<File>... lists) {
+        protected Void doInBackground(ArrayList<File>... lists) {
             ArrayList<File> images = lists[0];
-            try {
-                for (File image : images) {
-                    deleteImage(image);
-                }
-                return true;
+            for (File image : images) {
+                String key = prefix + image.getName();
+                Log.i("Deleted Key", key);
+                s3Client.deleteObject(bucket, key);
             }
-            catch (Exception e) {
-                Log.e("deleteImage", e.toString());
-                return false;
-            }
-        }
-
-        private void deleteImage(File image) throws Exception {
-            int index = image.getPath().lastIndexOf("/") + 1;
-            String key = prefix + image.getPath().substring(index);
-            s3Client.deleteObject(bucket, key);
+            return null;
         }
 
     }

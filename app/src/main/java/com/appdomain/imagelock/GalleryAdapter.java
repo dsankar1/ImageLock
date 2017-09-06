@@ -17,14 +17,14 @@ import java.util.ArrayList;
 
 public class GalleryAdapter extends ArrayAdapter<File> {
 
-    private Context context;
+    private int resourceId;
     private ArrayList<File> images;
     private SparseBooleanArray selectedImages;
     private LayoutInflater inflater;
 
     public GalleryAdapter(Context context, int resourceId, ArrayList<File> images) {
         super(context, resourceId, images);
-        this.context = context;
+        this.resourceId = resourceId;
         this.images = images;
         selectedImages = new SparseBooleanArray();
         inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -48,7 +48,7 @@ public class GalleryAdapter extends ArrayAdapter<File> {
     @Override
     public View getView(int i, View view, ViewGroup viewGroup) {
         Holder holder = new Holder();
-        View row = inflater.inflate(R.layout.gallery_item, null);
+        View row = inflater.inflate(resourceId, null);
         holder.image = row.findViewById(R.id.galleryItemImage);
         holder.title = row.findViewById(R.id.galleryItemTitle);
         holder.size = row.findViewById(R.id.galleryItemSize);
@@ -76,12 +76,12 @@ public class GalleryAdapter extends ArrayAdapter<File> {
         return row;
     }
 
-    public void removeSelection() {
+    public void removeAllSelections() {
         selectedImages = new SparseBooleanArray();
         notifyDataSetChanged();
     }
 
-    public void setSelection(int position, boolean value) {
+    public void setSelectedState(int position, boolean value) {
         if (value) {
             selectedImages.put(position, value);
         }

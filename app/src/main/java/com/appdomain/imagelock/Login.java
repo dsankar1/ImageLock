@@ -12,11 +12,6 @@ import android.widget.EditText;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.security.MessageDigest;
 
 public class Login extends AppCompatActivity {
@@ -135,7 +130,7 @@ public class Login extends AppCompatActivity {
         @Override
         protected Integer doInBackground(Void... params) {
             if (processCode == LOGIN) {
-                if (validateUser()) {
+                if (validateAccount()) {
                     return NO_ERROR;
                 }
                 else {
@@ -143,7 +138,7 @@ public class Login extends AppCompatActivity {
                 }
             }
             else {
-                if (registerUser()) {
+                if (registerAccount()) {
                     return NO_ERROR;
                 }
                 else {
@@ -178,15 +173,13 @@ public class Login extends AppCompatActivity {
             showProgress(false);
         }
 
-        private boolean registerUser() {
+        private boolean registerAccount() {
             try {
-                URL url = new URL("http://10.0.2.2:3000/api/user/register");
-                JSONObject user = new JSONObject();
-                user.put("username", username);
-                user.put("password", hash(password));
-                user.put("prefix", username + "/");
-
-                JSONObject response = sendHttpRequest(url, "POST", user);
+                JSONObject account = new JSONObject();
+                account.put("username", username);
+                account.put("password", hash(password));
+                account.put("prefix", username + "/");
+                JSONObject response = DBService.registerAccount(account);
                 boolean result = response.getBoolean("registered");
                 return result;
             }
@@ -196,14 +189,12 @@ public class Login extends AppCompatActivity {
             }
         }
 
-        private boolean validateUser() {
+        private boolean validateAccount() {
             try {
-                URL url = new URL("http://10.0.2.2:3000/api/user/validate");
-                JSONObject user = new JSONObject();
-                user.put("username", username);
-                user.put("password", hash(password));
-
-                JSONObject response = sendHttpRequest(url, "POST", user);
+                JSONObject account = new JSONObject();
+                account.put("username", username);
+                account.put("password", hash(password));
+                JSONObject response = DBService.validateAccount(account);
                 boolean result = response.getBoolean("valid");
                 return result;
             }
@@ -213,32 +204,7 @@ public class Login extends AppCompatActivity {
             }
         }
 
-        private JSONObject sendHttpRequest(URL url, String method, JSONObject body) throws Exception {
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setDoInput(true);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestMethod(method);
-
-            OutputStreamWriter osr = new OutputStreamWriter(connection.getOutputStream());
-            osr.write(body.toString());
-            osr.flush();
-
-            BufferedReader br = new BufferedReader
-                    (new InputStreamReader(connection.getInputStream()));
-
-            String line;
-            StringBuilder response = new StringBuilder();
-            while ((line = br.readLine()) != null) {
-                response.append(line);
-            }
-            br.close();
-            JSONObject json = new JSONObject(response.toString());
-            return json;
-        }
-
-        private String hash(String message) {
+        public String hash(String message) {
             String hash = null;
             try {
                 MessageDigest md = MessageDigest.getInstance("MD5");
