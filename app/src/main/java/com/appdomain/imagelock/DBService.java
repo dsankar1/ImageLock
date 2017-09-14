@@ -12,14 +12,14 @@ public class DBService {
 
     public static JSONObject validateAccount(JSONObject requestBody) throws Exception {
         // url will change
-        URL url = new URL("http://10.0.2.2:3000/api/user/validate");
+        URL url = new URL("http://10.0.2.2:3000/api/validate");
         JSONObject response = sendHttpRequest(url, "POST", requestBody);
         return response;
     }
 
     public static JSONObject registerAccount(JSONObject requestBody) throws Exception {
         // url will change
-        URL url = new URL("http://10.0.2.2:3000/api/user/register");
+        URL url = new URL("http://10.0.2.2:3000/api/register");
         JSONObject response = sendHttpRequest(url, "POST", requestBody);
         return response;
     }

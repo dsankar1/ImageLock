@@ -24,9 +24,4 @@
         <item name="android:textColor">@color/colorPrimary</item>
     </style>
 
-    <style name="AppTheme.Login" parent="AppTheme">
-        <item name="android:windowTranslucentStatus">true</item>
-        <item name="android:windowTranslucentNavigation">true</item>
-    </style>
-
 </resources>

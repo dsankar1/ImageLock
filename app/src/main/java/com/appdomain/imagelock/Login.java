@@ -1,8 +1,12 @@
 package com.appdomain.imagelock;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
@@ -31,10 +35,20 @@ public class Login extends AppCompatActivity {
         loginForm = findViewById(R.id.loginForm);
         loginProgressBar = findViewById(R.id.loginProgressBar);
 
+        setClickEvents();
+    }
+
+    private void setClickEvents() {
         Button loginBtn = (Button) findViewById(R.id.loginBtn);
         loginBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if (!isConnectedToInternet()) {
+                    Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
+                            "No Internet Access", Snackbar.LENGTH_LONG);
+                    deleted.show();
+                    return;
+                }
                 processCredentials(ProcessCredentialsTask.LOGIN);
             }
         });
@@ -43,9 +57,23 @@ public class Login extends AppCompatActivity {
         signUpBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                if (!isConnectedToInternet()) {
+                    final Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
+                            "No Internet Access", Snackbar.LENGTH_LONG);
+                    deleted.show();
+                    return;
+                }
                 processCredentials(ProcessCredentialsTask.SIGNUP);
             }
         });
+    }
+
+    private boolean isConnectedToInternet() {
+        ConnectivityManager cm = (ConnectivityManager) getApplicationContext()
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
     }
 
     private void processCredentials(int process) {
@@ -90,11 +118,12 @@ public class Login extends AppCompatActivity {
         } else {
             showProgress(true);
             processCredTask = new ProcessCredentialsTask(username, password, process);
-            processCredTask.execute((Void) null);
+            processCredTask.execute();
         }
     }
 
     private boolean isUsernameValid(String username) {
+        // Checks to make sure username is alphanumeric
         return username.matches("[a-zA-Z0-9]*");
     }
 
@@ -113,9 +142,8 @@ public class Login extends AppCompatActivity {
         }
     }
 
-    private class ProcessCredentialsTask extends AsyncTask<Void, Void, Integer> {
+    private class ProcessCredentialsTask extends AsyncTask<Void, Void, JSONObject> {
 
-        private final static int NO_ERROR = 0, ACCOUNT_EXISTS = 1, UNVERIFIED = 2;
         public final static int LOGIN = 1, SIGNUP = 2;
         private final String username;
         private final String password;
@@ -128,43 +156,59 @@ public class Login extends AppCompatActivity {
         }
 
         @Override
-        protected Integer doInBackground(Void... params) {
+        protected JSONObject doInBackground(Void... params) {
             if (processCode == LOGIN) {
-                if (validateAccount()) {
-                    return NO_ERROR;
-                }
-                else {
-                    return UNVERIFIED;
-                }
+                return validateAccount();
             }
             else {
-                if (registerAccount()) {
-                    return NO_ERROR;
-                }
-                else {
-                    return ACCOUNT_EXISTS;
-                }
+                return registerAccount();
             }
         }
 
         @Override
-        protected void onPostExecute(final Integer errorCode) {
+        protected void onPostExecute(final JSONObject response) {
             processCredTask = null;
-
-            if (errorCode == UNVERIFIED) {
-                usernameEditText.setError(getString(R.string.error_account_not_recognized));
-                usernameEditText.requestFocus();
-            } else if (errorCode == ACCOUNT_EXISTS) {
-                usernameEditText.setError(getString(R.string.error_username_taken));
-                usernameEditText.requestFocus();
-            } else {
-                Intent home = new Intent(getApplicationContext(), Gallery.class);
-                home.putExtra("USERNAME", username);
-                home.putExtra("PASSWORD", password);
-                home.putExtra("PREFIX", username + "/");
-                startActivity(home);
+            Log.i("JSON", response.toString());
+            try {
+                Integer errorCode = response.getInt("errorCode");
+                Log.i("case", errorCode.toString());
+                switch(errorCode) {
+                    case 0:
+                        Intent home = new Intent(getApplicationContext(), Gallery.class);
+                        home.putExtra("USERNAME", username);
+                        home.putExtra("PASSWORD", password);
+                        home.putExtra("PREFIX", response.getString("prefix"));
+                        startActivity(home);
+                        break;
+                    case 1:
+                        usernameEditText.setError(getString(R.string.error_username_taken));
+                        usernameEditText.requestFocus();
+                        break;
+                    case 2:
+                        usernameEditText.setError(getString(R.string.error_account_not_recognized));
+                        usernameEditText.requestFocus();
+                        break;
+                    case 3:
+                        passwordEditText.setError(getString(R.string.error_incorrect_password));
+                        passwordEditText.requestFocus();
+                        break;
+                    case 4:
+                        Snackbar serverError = Snackbar.make(findViewById(android.R.id.content),
+                                "Internal Server Error", Snackbar.LENGTH_LONG);
+                        serverError.show();
+                        break;
+                    default:
+                        Snackbar codeError = Snackbar.make(findViewById(android.R.id.content),
+                                "Code Error", Snackbar.LENGTH_LONG);
+                        codeError.show();
+                        break;
+                }
+                showProgress(false);
             }
-            showProgress(false);
+            catch(Exception e) {
+                Log.e("Error", e.toString());
+                showProgress(false);
+            }
         }
 
         @Override
@@ -173,34 +217,30 @@ public class Login extends AppCompatActivity {
             showProgress(false);
         }
 
-        private boolean registerAccount() {
+        private JSONObject registerAccount() {
             try {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
                 account.put("password", hash(password));
                 account.put("prefix", username + "/");
-                JSONObject response = DBService.registerAccount(account);
-                boolean result = response.getBoolean("registered");
-                return result;
+                return DBService.registerAccount(account);
             }
             catch (Exception e) {
                 Log.i("Error", e.toString());
-                return false;
+                return null;
             }
         }
 
-        private boolean validateAccount() {
+        private JSONObject validateAccount() {
             try {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
                 account.put("password", hash(password));
-                JSONObject response = DBService.validateAccount(account);
-                boolean result = response.getBoolean("valid");
-                return result;
+                return DBService.validateAccount(account);
             }
             catch (Exception e) {
                 Log.i("Error", e.toString());
-                return false;
+                return null;
             }
         }
 

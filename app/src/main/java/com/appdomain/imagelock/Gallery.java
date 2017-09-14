@@ -27,6 +27,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferType;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -66,7 +67,7 @@ public class Gallery extends AppCompatActivity {
         setContentView(R.layout.activity_gallery);
         // AWS stuff
         s3Client = new AmazonS3Client(new BasicAWSCredentials
-                ("keyId", "secret"));
+                ("id", "key"));
         transferUtility = new TransferUtility(s3Client, getApplicationContext());
         // Action Bar stuff
         galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
@@ -232,6 +233,7 @@ public class Gallery extends AppCompatActivity {
     }
 
     private void logout() {
+        transferUtility.cancelAllWithType(TransferType.ANY);
         deleteLocalStorage();
         Intent login = new Intent(getApplicationContext(), Login.class);
         login.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -267,7 +269,7 @@ public class Gallery extends AppCompatActivity {
         return (res == PackageManager.PERMISSION_GRANTED);
     }
 
-    public boolean isConnectedToInternet() {
+    private boolean isConnectedToInternet() {
         ConnectivityManager cm = (ConnectivityManager) getApplicationContext()
                 .getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
@@ -313,7 +315,7 @@ public class Gallery extends AppCompatActivity {
                 String key = summary.getKey();
                 String name = new File(key).getName();
                 File image = new File(localStorage, name);
-                TransferObserver observer = transferUtility.download(bucket, key, image);
+                final TransferObserver observer = transferUtility.download(bucket, key, image);
                 observer.setTransferListener(new TransferListener() {
                     @Override
                     public void onStateChanged(int i, TransferState transferState) {
@@ -327,7 +329,7 @@ public class Gallery extends AppCompatActivity {
 
                     @Override
                     public void onProgressChanged(int i, long l, long l1) {
-                        //Stub
+                        // Stub
                     }
 
                     @Override
