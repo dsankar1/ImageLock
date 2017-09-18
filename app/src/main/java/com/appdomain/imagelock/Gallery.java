@@ -3,6 +3,8 @@ package com.appdomain.imagelock;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -18,6 +20,7 @@ import android.util.SparseBooleanArray;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.AnimationUtils;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ListView;
@@ -67,10 +70,12 @@ public class Gallery extends AppCompatActivity {
         setContentView(R.layout.activity_gallery);
         // AWS stuff
         s3Client = new AmazonS3Client(new BasicAWSCredentials
-                ("id", "key"));
+                ("key", "secret"));
         transferUtility = new TransferUtility(s3Client, getApplicationContext());
         // Action Bar stuff
         galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
+        galleryProgressBar.getIndeterminateDrawable()
+                .setColorFilter(Color.parseColor("#838383"), PorterDuff.Mode.MULTIPLY);
         galleryToolBar = (Toolbar) findViewById(R.id.galleryToolBar);
         setSupportActionBar(galleryToolBar);
 
@@ -100,6 +105,7 @@ public class Gallery extends AppCompatActivity {
         else {
             galleryProgressBar.setVisibility(View.GONE);
             galleryListView.setVisibility(View.VISIBLE);
+            galleryListView.startAnimation(AnimationUtils.loadAnimation(this, R.anim.fade_in));
         }
     }
 

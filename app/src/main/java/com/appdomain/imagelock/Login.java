@@ -2,6 +2,8 @@ package com.appdomain.imagelock;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -13,6 +15,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 
 import org.json.JSONObject;
 
@@ -22,7 +25,7 @@ public class Login extends AppCompatActivity {
 
     private ProcessCredentialsTask processCredTask = null;
     private EditText usernameEditText, passwordEditText;
-    private View loginProgressBar;
+    private ProgressBar loginProgressBar;
     private View loginForm;
 
     @Override
@@ -33,7 +36,9 @@ public class Login extends AppCompatActivity {
         usernameEditText = (EditText) findViewById(R.id.usernameEditText);
         passwordEditText = (EditText) findViewById(R.id.passwordEditText);
         loginForm = findViewById(R.id.loginForm);
-        loginProgressBar = findViewById(R.id.loginProgressBar);
+        loginProgressBar = (ProgressBar) findViewById(R.id.loginProgressBar);
+        loginProgressBar.getIndeterminateDrawable()
+                .setColorFilter(Color.parseColor("#838383"), PorterDuff.Mode.MULTIPLY);
 
         setClickEvents();
     }
