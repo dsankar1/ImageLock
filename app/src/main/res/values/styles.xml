@@ -10,6 +10,7 @@
         <item name="actionModeBackground">@color/white</item>
         <item name="actionBarPopupTheme">@style/AppTheme.PopupOverlay</item>
         <item name="actionModeCloseDrawable">@drawable/ic_arrow_back_black_24dp</item>
+        <item name="android:textColorHint">@color/colorAccent</item>
     </style>
 
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Light">

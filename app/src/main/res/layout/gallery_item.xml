@@ -34,7 +34,7 @@
             android:layout_height="match_parent"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/colorAccent"
+            android:textColor="@color/grey"
             android:textSize="14sp" />
 
     </LinearLayout>

@@ -52,7 +52,7 @@ public class Gallery extends AppCompatActivity {
         // Action Bar stuff
         galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
         galleryProgressBar.getIndeterminateDrawable()
-                .setColorFilter(Color.parseColor("#838383"), PorterDuff.Mode.MULTIPLY);
+                .setColorFilter(Color.parseColor("#2D2D2D"), PorterDuff.Mode.MULTIPLY);
         galleryToolBar = (Toolbar) findViewById(R.id.galleryToolBar);
         setSupportActionBar(galleryToolBar);
 
