@@ -252,22 +252,28 @@ public class Login extends AppCompatActivity {
 
         public String hash(String message, String salt) {
             String hash = null;
-            message = message + salt;
+            message = salt + message;
             try {
                 MessageDigest md = MessageDigest.getInstance("SHA-256");
                 md.update(message.getBytes());
                 byte[] bytes = md.digest();
-                StringBuilder sb = new StringBuilder();
-
-                for (byte b : bytes) {
-                    sb.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
-                }
-                hash = sb.toString();
+                hash = bytesToHex(bytes);
             }
             catch(Exception e) {
                 Log.e("Hash", e.toString());
             }
             return hash;
+        }
+
+        private String bytesToHex(byte[] hash) {
+            StringBuffer hexString = new StringBuffer();
+            for (int i = 0; i < hash.length; i++) {
+                if (i % 2 == 0) continue;
+                String hex = Integer.toHexString(0xff & hash[i]);
+                if(hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
         }
 
     }

@@ -15,6 +15,7 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,11 +27,17 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Gallery extends AppCompatActivity {
 
@@ -267,7 +274,7 @@ public class Gallery extends AppCompatActivity {
         @Override
         protected Void doInBackground(Void... voids) {
             try {
-                HttpService.downloadImages(localStorage, token);
+                HttpService.downloadImages(localStorage, token, key);
             } catch(Exception e) {
                 Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
                         "Failed to Download Images", Snackbar.LENGTH_LONG);
@@ -289,8 +296,13 @@ public class Gallery extends AppCompatActivity {
         @Override
         protected Void doInBackground(File... images) {
             File image = images[0];
+            String encryptedFilename = image.getName().substring(0, image.getName().lastIndexOf(".")) + ".encrypted";
+            File encrypted = new File(localStorage, encryptedFilename);
+            encryptImage(image, encrypted);
+
             try {
-                boolean success = HttpService.uploadImage(image, token);
+                boolean success = HttpService.uploadImage(encrypted, token);
+                encrypted.delete();
                 if (!success) {
                     image.delete();
                     Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
@@ -308,6 +320,29 @@ public class Gallery extends AppCompatActivity {
         @Override
         protected void onPostExecute(Void noResults) {
             updateImages();
+        }
+
+        private void encryptImage(File source, File destination){
+            try {
+                Key secretKey = new SecretKeySpec(key.getBytes(), "AES");
+                Cipher cipher = Cipher.getInstance("AES");
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+
+                FileInputStream inputStream = new FileInputStream(source);
+                byte[] inputBytes = new byte[(int) source.length()];
+                inputStream.read(inputBytes);
+
+                byte[] outputBytes = cipher.doFinal(inputBytes);
+
+                FileOutputStream outputStream = new FileOutputStream(destination);
+                outputStream.write(outputBytes);
+
+                inputStream.close();
+                outputStream.close();
+
+            } catch (Exception e) {
+                Log.e("ERROR", e.toString());
+            }
         }
 
     }

@@ -6,14 +6,18 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.Key;
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.spec.SecretKeySpec;
 
 import okhttp3.ConnectionSpec;
 import okhttp3.MediaType;
@@ -55,23 +59,26 @@ public class HttpService {
         return response.getString("url");
     }
 
-    public static void downloadImages(File directory, String token) throws Exception {
+    public static void downloadImages(File directory, String token, String key) throws Exception {
         ArrayList<URL> urls = getDownloadUrls(token);
         for (int i = 0; i < urls.size(); i++) {
             String filename = urls.get(i).getPath();
             filename = filename.substring(filename.lastIndexOf("/"));
-            streamUrlContentToFile(urls.get(i), directory, filename);
+            filename = filename.substring(0, filename.lastIndexOf(".")) + ".jpg";
+            File image = new File(directory, filename);
+            streamUrlContentToFile(urls.get(i), image, key);
         }
     }
 
-    private static void streamUrlContentToFile(URL url, File directory, String filename) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) url
-                .openConnection();
-        InputStream input = connection.getInputStream();
+    private static void streamUrlContentToFile(URL url, File destination, String key) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        Key secretKey = new SecretKeySpec(key.getBytes(), "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        CipherInputStream input = new CipherInputStream(connection.getInputStream(), cipher);
         byte[] buffer = new byte[4096];
         int count;
-        File file = new File(directory, filename);
-        OutputStream output = new FileOutputStream(file);
+        OutputStream output = new FileOutputStream(destination);
         while ( (count = input.read(buffer)) != -1) {
             output.write(buffer, 0, count);
         }
