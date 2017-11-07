@@ -68,7 +68,7 @@ public class Login extends AppCompatActivity {
                     deleted.show();
                     return;
                 }
-                processCredentials(ProcessCredentialsTask.SIGNUP);
+                processCredentials(ProcessCredentialsTask.SIGN_UP);
             }
         });
     }
@@ -149,7 +149,7 @@ public class Login extends AppCompatActivity {
 
     private class ProcessCredentialsTask extends AsyncTask<Void, Void, JSONObject> {
 
-        public final static int LOGIN = 1, SIGNUP = 2;
+        public final static int LOGIN = 1, SIGN_UP = 2;
         private final String username;
         private final String password;
         private final int processCode;
@@ -175,38 +175,44 @@ public class Login extends AppCompatActivity {
             processCredTask = null;
             Log.i("JSON", response.toString());
             try {
-                Integer errorCode = response.getInt("errorCode");
-                Log.i("case", errorCode.toString());
-                switch(errorCode) {
-                    case 0:
-                        Intent home = new Intent(getApplicationContext(), Gallery.class);
-                        home.putExtra("USERNAME", username);
-                        home.putExtra("PASSWORD", password);
-                        home.putExtra("PREFIX", response.getString("prefix"));
-                        startActivity(home);
-                        break;
-                    case 1:
-                        usernameEditText.setError(getString(R.string.error_username_taken));
-                        usernameEditText.requestFocus();
-                        break;
-                    case 2:
-                        usernameEditText.setError(getString(R.string.error_account_not_recognized));
-                        usernameEditText.requestFocus();
-                        break;
-                    case 3:
-                        passwordEditText.setError(getString(R.string.error_incorrect_password));
-                        passwordEditText.requestFocus();
-                        break;
-                    case 4:
-                        Snackbar serverError = Snackbar.make(findViewById(android.R.id.content),
-                                "Internal Server Error", Snackbar.LENGTH_LONG);
-                        serverError.show();
-                        break;
-                    default:
-                        Snackbar codeError = Snackbar.make(findViewById(android.R.id.content),
-                                "Code Error", Snackbar.LENGTH_LONG);
-                        codeError.show();
-                        break;
+                Boolean success = response.getBoolean("success");
+                if (success) {
+                    String salt = response.getString("salt");
+                    String key = hash(password, salt);
+                    String token = response.getString("token");
+
+                    Intent home = new Intent(getApplicationContext(), Gallery.class);
+                    home.putExtra("USERNAME", username);
+                    home.putExtra("KEY", key);
+                    home.putExtra("TOKEN", token);
+                    startActivity(home);
+                }
+                else {
+                    Integer errorCode = response.getInt("errorCode");
+                    switch(errorCode) {
+                        case 1:
+                            usernameEditText.setError(getString(R.string.error_username_taken));
+                            usernameEditText.requestFocus();
+                            break;
+                        case 2:
+                            usernameEditText.setError(getString(R.string.error_account_not_recognized));
+                            usernameEditText.requestFocus();
+                            break;
+                        case 3:
+                            passwordEditText.setError(getString(R.string.error_incorrect_password));
+                            passwordEditText.requestFocus();
+                            break;
+                        case 4:
+                            Snackbar serverError = Snackbar.make(findViewById(android.R.id.content),
+                                    "Internal Server Error", Snackbar.LENGTH_LONG);
+                            serverError.show();
+                            break;
+                        default:
+                            Snackbar codeError = Snackbar.make(findViewById(android.R.id.content),
+                                    "Code Error", Snackbar.LENGTH_LONG);
+                            codeError.show();
+                            break;
+                    }
                 }
                 showProgress(false);
             }
@@ -226,8 +232,7 @@ public class Login extends AppCompatActivity {
             try {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
-                account.put("password", hash(password));
-                account.put("prefix", username + "/");
+                account.put("password", password);
                 return DBService.registerAccount(account);
             }
             catch (Exception e) {
@@ -240,8 +245,8 @@ public class Login extends AppCompatActivity {
             try {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
-                account.put("password", hash(password));
-                return DBService.validateAccount(account);
+                account.put("password", password);
+                return DBService.authenticateAccount(account);
             }
             catch (Exception e) {
                 Log.i("Error", e.toString());
@@ -249,10 +254,11 @@ public class Login extends AppCompatActivity {
             }
         }
 
-        public String hash(String message) {
+        public String hash(String message, String salt) {
             String hash = null;
+            message = message + salt;
             try {
-                MessageDigest md = MessageDigest.getInstance("MD5");
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
                 md.update(message.getBytes());
                 byte[] bytes = md.digest();
                 StringBuilder sb = new StringBuilder();

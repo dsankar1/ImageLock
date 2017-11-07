@@ -3,6 +3,8 @@ package com.appdomain.imagelock;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.net.ConnectivityManager;
@@ -33,17 +35,23 @@ import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferType;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.List;
+
+import static com.appdomain.imagelock.DBService.getRequest;
 
 public class Gallery extends AppCompatActivity {
 
@@ -55,7 +63,7 @@ public class Gallery extends AppCompatActivity {
     private ListView galleryListView;
     private ProgressBar galleryProgressBar;
 
-    private String username, password, prefix, authorities;
+    private String username, key, token, authorities;
     private File mostRecentImage;
     private File localStorage;
     private ArrayList<File> images;
@@ -70,7 +78,7 @@ public class Gallery extends AppCompatActivity {
         setContentView(R.layout.activity_gallery);
         // AWS stuff
         s3Client = new AmazonS3Client(new BasicAWSCredentials
-                ("key", "secret"));
+                ("", ""));
         transferUtility = new TransferUtility(s3Client, getApplicationContext());
         // Action Bar stuff
         galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
@@ -81,17 +89,17 @@ public class Gallery extends AppCompatActivity {
 
         authorities = getApplicationContext().getPackageName() + ".fileprovider";
         username = getIntent().getExtras().getString("USERNAME");
-        password = getIntent().getExtras().getString("PASSWORD");
-        prefix = getIntent().getExtras().getString("PREFIX");
+        key = getIntent().getExtras().getString("KEY");
+        token = getIntent().getExtras().getString("TOKEN");
         images = new ArrayList<>();
-        localStorage = new File(getFilesDir(), prefix);
+        localStorage = new File(getFilesDir(), username);
 
         // List view stuff
         galleryListView = (ListView) findViewById(R.id.galleryListView);
         galleryAdapter = new GalleryAdapter(getApplicationContext(), R.layout.gallery_item, images);
         galleryListView.setAdapter(galleryAdapter);
         galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
-
+        Log.i("TEST", localStorage.getPath());
         createLocalStorage();
         setListViewEventListeners();
         new DownloadTask().execute();
@@ -291,7 +299,7 @@ public class Gallery extends AppCompatActivity {
         galleryAdapter.notifyDataSetChanged();
     }
 
-    private class DownloadTask extends AsyncTask<Void, Void, Void> {
+    private class DownloadTask extends AsyncTask<Void, Void, ArrayList<Bitmap>> {
 
         @Override
         protected void onPreExecute() {
@@ -299,52 +307,64 @@ public class Gallery extends AppCompatActivity {
         }
 
         @Override
-        protected Void doInBackground(Void... voids) {
-            downloadImages();
-            return null;
+        protected ArrayList<Bitmap> doInBackground(Void... voids) {
+            try {
+                ArrayList<URL> urls = getImageUrls();
+
+                Log.i("RESPONSE", urls.toString());
+                for (int i = 1; i < urls.size(); i++) {
+                    Log.i("URL", urls.get(i).getPath());
+                    String filename = urls.get(i).getPath();
+                    filename = filename.substring(filename.lastIndexOf("/"));
+                    streamUrlContentToFile(urls.get(i), filename);
+                }
+                return null;
+            } catch(Exception e) {
+                Log.i("ERROR", e.toString());
+                return null;
+            }
         }
 
-        private void downloadImages() {
-            ObjectListing listing = s3Client.listObjects(new ListObjectsRequest()
-                            .withBucketName(bucket)
-                            .withPrefix(prefix));
-            final List<S3ObjectSummary> summaries = listing.getObjectSummaries();
-            if (summaries.isEmpty()){
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        showProgress(false);
-                    }
-                });
-            }
-            for (S3ObjectSummary summary : summaries) {
-                String key = summary.getKey();
-                String name = new File(key).getName();
-                File image = new File(localStorage, name);
-                final TransferObserver observer = transferUtility.download(bucket, key, image);
-                observer.setTransferListener(new TransferListener() {
-                    @Override
-                    public void onStateChanged(int i, TransferState transferState) {
-                        if (transferState == TransferState.COMPLETED) {
-                            if (localStorage.listFiles().length == summaries.size()) {
-                                showProgress(false);
-                                updateImages();
-                            }
-                        }
-                    }
+        @Override
+        protected void onPostExecute(ArrayList<Bitmap> result) {
+            updateImages();
+            showProgress(false);
+        }
 
-                    @Override
-                    public void onProgressChanged(int i, long l, long l1) {
-                        // Stub
-                    }
-
-                    @Override
-                    public void onError(int i, Exception e) {
-                        showProgress(false);
-                        Log.e("ERROR", e.toString());
-                    }
-                });
+        private void streamUrlContentToFile(URL url, String filename) throws Exception {
+            HttpURLConnection connection = (HttpURLConnection) url
+                    .openConnection();
+            InputStream input = connection.getInputStream();
+            byte[] buffer = new byte[4096];
+            int cnt;
+            File file = new File(localStorage, filename);
+            OutputStream output = new FileOutputStream(file);
+            while ( (cnt = input.read(buffer)) != -1) {
+                output.write(buffer, 0, cnt);
             }
+            output.close();
+        }
+
+        private Bitmap getBitmapFromURL(URL url) throws Exception {
+            HttpURLConnection connection = (HttpURLConnection) url
+                    .openConnection();
+            connection.setDoInput(true);
+            connection.connect();
+            InputStream input = connection.getInputStream();
+            Bitmap myBitmap = BitmapFactory.decodeStream(input);
+            return myBitmap;
+        }
+
+        private ArrayList<URL> getImageUrls() throws Exception {
+            URL url = new URL("http://10.0.2.2:3002/api/images");
+            JSONObject response = getRequest(url, token);
+            JSONArray jsonUrls = response.getJSONArray("urls");
+            ArrayList<URL> urls = new ArrayList<>();
+            for (int i = 0; i < jsonUrls.length(); i++) {
+                URL imageUrl = new URL((String)jsonUrls.get(i));
+                urls.add(imageUrl);
+            }
+            return urls;
         }
 
     }
@@ -358,7 +378,7 @@ public class Gallery extends AppCompatActivity {
         }
 
         private void uploadImage(File image) {
-            String key = prefix + image.getName();
+            //String key = prefix + image.getName();
             Log.i("Uploaded Key", key);
             TransferObserver observer = transferUtility.upload(bucket, key, image);
             observer.setTransferListener(new TransferListener() {
@@ -390,7 +410,7 @@ public class Gallery extends AppCompatActivity {
         protected Void doInBackground(ArrayList<File>... lists) {
             ArrayList<File> images = lists[0];
             for (File image : images) {
-                String key = prefix + image.getName();
+                //String key = prefix + image.getName();
                 Log.i("Deleted Key", key);
                 s3Client.deleteObject(bucket, key);
             }
