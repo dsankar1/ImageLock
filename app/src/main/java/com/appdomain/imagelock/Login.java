@@ -39,7 +39,6 @@ public class Login extends AppCompatActivity {
         loginProgressBar = (ProgressBar) findViewById(R.id.loginProgressBar);
         loginProgressBar.getIndeterminateDrawable()
                 .setColorFilter(Color.parseColor("#838383"), PorterDuff.Mode.MULTIPLY);
-
         setClickEvents();
     }
 
@@ -173,7 +172,6 @@ public class Login extends AppCompatActivity {
         @Override
         protected void onPostExecute(final JSONObject response) {
             processCredTask = null;
-            Log.i("JSON", response.toString());
             try {
                 Boolean success = response.getBoolean("success");
                 if (success) {
@@ -186,6 +184,7 @@ public class Login extends AppCompatActivity {
                     home.putExtra("KEY", key);
                     home.putExtra("TOKEN", token);
                     startActivity(home);
+                    finish();
                 }
                 else {
                     Integer errorCode = response.getInt("errorCode");
@@ -213,11 +212,10 @@ public class Login extends AppCompatActivity {
                             codeError.show();
                             break;
                     }
+                    showProgress(false);
                 }
-                showProgress(false);
             }
             catch(Exception e) {
-                Log.e("Error", e.toString());
                 showProgress(false);
             }
         }
@@ -233,10 +231,9 @@ public class Login extends AppCompatActivity {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
                 account.put("password", password);
-                return DBService.registerAccount(account);
+                return HttpService.registerAccount(account);
             }
             catch (Exception e) {
-                Log.i("Error", e.toString());
                 return null;
             }
         }
@@ -246,10 +243,9 @@ public class Login extends AppCompatActivity {
                 JSONObject account = new JSONObject();
                 account.put("username", username);
                 account.put("password", password);
-                return DBService.authenticateAccount(account);
+                return HttpService.authenticateAccount(account);
             }
             catch (Exception e) {
-                Log.i("Error", e.toString());
                 return null;
             }
         }

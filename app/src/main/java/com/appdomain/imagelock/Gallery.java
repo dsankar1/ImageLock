@@ -3,8 +3,6 @@ package com.appdomain.imagelock;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.net.ConnectivityManager;
@@ -17,7 +15,6 @@ import android.support.design.widget.Snackbar;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -28,58 +25,30 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferType;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
-import com.amazonaws.services.s3.AmazonS3Client;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 
-import static com.appdomain.imagelock.DBService.getRequest;
-
 public class Gallery extends AppCompatActivity {
 
     private static final int CAMERA = 1;
-    private final String bucket = "imagelocks3";
-    private final boolean test = true;
-
     private Toolbar galleryToolBar;
     private ListView galleryListView;
     private ProgressBar galleryProgressBar;
-
     private String username, key, token, authorities;
     private File mostRecentImage;
     private File localStorage;
     private ArrayList<File> images;
     private GalleryAdapter galleryAdapter;
 
-    private AmazonS3Client s3Client;
-    private TransferUtility transferUtility;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_gallery);
-        // AWS stuff
-        s3Client = new AmazonS3Client(new BasicAWSCredentials
-                ("", ""));
-        transferUtility = new TransferUtility(s3Client, getApplicationContext());
+
         // Action Bar stuff
         galleryProgressBar = (ProgressBar) findViewById(R.id.galleryProgressBar);
         galleryProgressBar.getIndeterminateDrawable()
@@ -99,10 +68,9 @@ public class Gallery extends AppCompatActivity {
         galleryAdapter = new GalleryAdapter(getApplicationContext(), R.layout.gallery_item, images);
         galleryListView.setAdapter(galleryAdapter);
         galleryListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
-        Log.i("TEST", localStorage.getPath());
         createLocalStorage();
         setListViewEventListeners();
-        new DownloadTask().execute();
+        new DownloadImages().execute();
     }
 
     private synchronized void showProgress(boolean show) {
@@ -125,10 +93,8 @@ public class Gallery extends AppCompatActivity {
     private void deleteLocalStorage() {
         if (localStorage.exists()) {
             for (File image : localStorage.listFiles()) {
-                Log.i("Deleted on Logout", image.getPath());
                 image.delete();
             }
-            Log.i("Deleting Directory", localStorage.getPath());
             localStorage.delete();
         }
     }
@@ -141,7 +107,6 @@ public class Gallery extends AppCompatActivity {
                 if (checkedCount > 0) {
                     actionMode.setTitle(checkedCount + " selected");
                 }
-                if (test) Log.i("Checked", i + " " + galleryListView.isItemChecked(i));
                 galleryAdapter.setSelectedState(i, galleryListView.isItemChecked(i));
             }
 
@@ -196,8 +161,7 @@ public class Gallery extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == CAMERA && resultCode == RESULT_OK) {
-            updateImages();
-            new UploadTask().execute(mostRecentImage);
+            new UploadImage().execute(mostRecentImage);
         }
     }
 
@@ -247,7 +211,6 @@ public class Gallery extends AppCompatActivity {
     }
 
     private void logout() {
-        transferUtility.cancelAllWithType(TransferType.ANY);
         deleteLocalStorage();
         Intent login = new Intent(getApplicationContext(), Login.class);
         login.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -262,14 +225,9 @@ public class Gallery extends AppCompatActivity {
             if (selected.valueAt(i)) {
                 File image = images.get(selected.keyAt(i));
                 toDelete.add(image);
-                image.delete();
             }
         }
         new DeleteTask().execute(toDelete);
-        updateImages();
-        Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
-                selected.size() + " Item(s) Deleted", Snackbar.LENGTH_LONG);
-        deleted.show();
     }
 
     private void selectAll() {
@@ -299,7 +257,7 @@ public class Gallery extends AppCompatActivity {
         galleryAdapter.notifyDataSetChanged();
     }
 
-    private class DownloadTask extends AsyncTask<Void, Void, ArrayList<Bitmap>> {
+    private class DownloadImages extends AsyncTask<Void, Void, Void> {
 
         @Override
         protected void onPreExecute() {
@@ -307,114 +265,85 @@ public class Gallery extends AppCompatActivity {
         }
 
         @Override
-        protected ArrayList<Bitmap> doInBackground(Void... voids) {
+        protected Void doInBackground(Void... voids) {
             try {
-                ArrayList<URL> urls = getImageUrls();
-
-                Log.i("RESPONSE", urls.toString());
-                for (int i = 1; i < urls.size(); i++) {
-                    Log.i("URL", urls.get(i).getPath());
-                    String filename = urls.get(i).getPath();
-                    filename = filename.substring(filename.lastIndexOf("/"));
-                    streamUrlContentToFile(urls.get(i), filename);
-                }
-                return null;
+                HttpService.downloadImages(localStorage, token);
             } catch(Exception e) {
-                Log.i("ERROR", e.toString());
-                return null;
+                Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                        "Failed to Download Images", Snackbar.LENGTH_LONG);
+                snackbar.show();
             }
+            return null;
         }
 
         @Override
-        protected void onPostExecute(ArrayList<Bitmap> result) {
+        protected void onPostExecute(Void noResults) {
             updateImages();
             showProgress(false);
         }
 
-        private void streamUrlContentToFile(URL url, String filename) throws Exception {
-            HttpURLConnection connection = (HttpURLConnection) url
-                    .openConnection();
-            InputStream input = connection.getInputStream();
-            byte[] buffer = new byte[4096];
-            int cnt;
-            File file = new File(localStorage, filename);
-            OutputStream output = new FileOutputStream(file);
-            while ( (cnt = input.read(buffer)) != -1) {
-                output.write(buffer, 0, cnt);
-            }
-            output.close();
-        }
-
-        private Bitmap getBitmapFromURL(URL url) throws Exception {
-            HttpURLConnection connection = (HttpURLConnection) url
-                    .openConnection();
-            connection.setDoInput(true);
-            connection.connect();
-            InputStream input = connection.getInputStream();
-            Bitmap myBitmap = BitmapFactory.decodeStream(input);
-            return myBitmap;
-        }
-
-        private ArrayList<URL> getImageUrls() throws Exception {
-            URL url = new URL("http://10.0.2.2:3002/api/images");
-            JSONObject response = getRequest(url, token);
-            JSONArray jsonUrls = response.getJSONArray("urls");
-            ArrayList<URL> urls = new ArrayList<>();
-            for (int i = 0; i < jsonUrls.length(); i++) {
-                URL imageUrl = new URL((String)jsonUrls.get(i));
-                urls.add(imageUrl);
-            }
-            return urls;
-        }
-
     }
 
-    private class UploadTask extends AsyncTask<File, Void, Void> {
+    private class UploadImage extends AsyncTask<File, Void, Void> {
 
         @Override
         protected Void doInBackground(File... images) {
-            uploadImage(images[0]);
+            File image = images[0];
+            try {
+                boolean success = HttpService.uploadImage(image, token);
+                if (!success) {
+                    image.delete();
+                    Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                            "Image failed to upload.", Snackbar.LENGTH_LONG);
+                    snackbar.show();
+                }
+            } catch(Exception e) {
+                Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                        "Image failed to upload.", Snackbar.LENGTH_LONG);
+                snackbar.show();
+            }
             return null;
         }
 
-        private void uploadImage(File image) {
-            //String key = prefix + image.getName();
-            Log.i("Uploaded Key", key);
-            TransferObserver observer = transferUtility.upload(bucket, key, image);
-            observer.setTransferListener(new TransferListener() {
-                @Override
-                public void onStateChanged(int i, TransferState transferState) {
-                    // Stub
-                }
-
-                @Override
-                public void onProgressChanged(int i, long l, long l1) {
-                    // Stub
-                }
-
-                @Override
-                public void onError(int i, Exception e) {
-                    final Snackbar error = Snackbar.make(findViewById(android.R.id.content),
-                            "Failed to Upload Image", Snackbar.LENGTH_LONG);
-                    error.show();
-                    Log.e("ERROR", e.toString());
-                }
-            });
+        @Override
+        protected void onPostExecute(Void noResults) {
+            updateImages();
         }
 
     }
 
-    private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Void> {
+    private class DeleteTask extends AsyncTask<ArrayList<File>, Void, Integer> {
 
         @Override
-        protected Void doInBackground(ArrayList<File>... lists) {
+        protected void onPreExecute() {
+            showProgress(true);
+        }
+
+        @Override
+        protected Integer doInBackground(ArrayList<File>... lists) {
             ArrayList<File> images = lists[0];
-            for (File image : images) {
-                //String key = prefix + image.getName();
-                Log.i("Deleted Key", key);
-                s3Client.deleteObject(bucket, key);
+            int deleted = 0;
+            try {
+                for (File image : images) {
+                    boolean success = HttpService.deleteImage(image.getName(), token);
+                    if (success) {
+                        image.delete();
+                        deleted++;
+                    }
+                }
+                return deleted;
+            } catch(Exception e) {
+                return null;
             }
-            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Integer deleted) {
+            updateImages();
+            showProgress(false);
+            Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                    deleted + " Item(s) Deleted", Snackbar.LENGTH_LONG);
+            snackbar.show();
         }
 
     }
