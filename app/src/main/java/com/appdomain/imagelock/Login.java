@@ -38,7 +38,7 @@ public class Login extends AppCompatActivity {
         loginForm = findViewById(R.id.loginForm);
         loginProgressBar = (ProgressBar) findViewById(R.id.loginProgressBar);
         loginProgressBar.getIndeterminateDrawable()
-                .setColorFilter(Color.parseColor("#FFFFFF"), PorterDuff.Mode.MULTIPLY);
+                .setColorFilter(Color.parseColor("#C3C3C3"), PorterDuff.Mode.MULTIPLY);
         setClickEvents();
     }
 
