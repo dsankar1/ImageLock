@@ -52,6 +52,7 @@ public class Login extends AppCompatActivity {
         this.mode = mode;
         clearText();
         updateViewByMode();
+        usernameEditText.requestFocus();
     }
 
     private void clearText() {
