@@ -91,6 +91,7 @@ public class Login extends AppCompatActivity {
             public void onClick(View view) {
                 usernameEditText.setError(null);
                 passwordEditText.setError(null);
+                retypePasswordEditText.setError(null);
                 if (mode == SIGNUP_MODE) {
                     processCredentials();
                 } else {
