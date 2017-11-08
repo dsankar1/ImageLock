@@ -4,6 +4,7 @@
     <!-- Strings related to login -->
     <string name="prompt_username">Username</string>
     <string name="prompt_password">Password</string>
+    <string name="retype_password">Confirm Password</string>
     <string name="action_sign_up">Sign Up</string>
     <string name="action_login">Login</string>
     <string name="error_username_taken">This username is already taken</string>
@@ -12,6 +13,8 @@
     <string name="error_invalid_password">This password is too short</string>
     <string name="error_incorrect_password">This password is incorrect</string>
     <string name="error_field_required">This field is required</string>
+    <string name="passwords_dont_match">The passwords entered don\'t match</string>
+    <string name="please_retype_password">Please retype your password</string>
 
     <!--Strings related to gallery-->
     <string name="gallery">Gallery</string>

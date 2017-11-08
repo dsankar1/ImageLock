@@ -23,51 +23,79 @@ import java.security.MessageDigest;
 
 public class Login extends AppCompatActivity {
 
+    private final static int LOGIN_MODE = 1, SIGNUP_MODE = 2;
     private ProcessCredentialsTask processCredTask = null;
-    private EditText usernameEditText, passwordEditText;
+    private EditText usernameEditText, passwordEditText, retypePasswordEditText;
     private ProgressBar loginProgressBar;
+    private Button loginBtn, signUpBtn;
     private View loginForm;
+    private int mode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
-
         usernameEditText = (EditText) findViewById(R.id.usernameEditText);
         passwordEditText = (EditText) findViewById(R.id.passwordEditText);
+        retypePasswordEditText = (EditText) findViewById(R.id.retypePasswordEditText);
         loginForm = findViewById(R.id.loginForm);
+        loginBtn = (Button) findViewById(R.id.loginBtn);
+        signUpBtn = (Button) findViewById(R.id.signUpBtn);
         loginProgressBar = (ProgressBar) findViewById(R.id.loginProgressBar);
         loginProgressBar.getIndeterminateDrawable()
                 .setColorFilter(Color.parseColor("#C3C3C3"), PorterDuff.Mode.MULTIPLY);
         setClickEvents();
+        setMode(LOGIN_MODE);
+    }
+
+    private void setMode(int mode) {
+        this.mode = mode;
+        clearText();
+        updateViewByMode();
+    }
+
+    private void clearText() {
+        usernameEditText.setText("");
+        passwordEditText.setText("");
+        retypePasswordEditText.setText("");
+    }
+
+    private void updateViewByMode() {
+        if (mode == LOGIN_MODE) {
+            retypePasswordEditText.setVisibility(View.GONE);
+            loginBtn.setBackgroundResource(R.drawable.white_fill_gray_outline);
+            signUpBtn.setBackgroundResource(R.color.darkGrey);
+        } else {
+            retypePasswordEditText.setVisibility(View.VISIBLE);
+            loginBtn.setBackgroundResource(R.color.darkGrey);
+            signUpBtn.setBackgroundResource(R.drawable.white_fill_gray_outline);
+        }
     }
 
     private void setClickEvents() {
-        Button loginBtn = (Button) findViewById(R.id.loginBtn);
         loginBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (!isConnectedToInternet()) {
-                    Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
-                            "No Internet Access", Snackbar.LENGTH_LONG);
-                    deleted.show();
-                    return;
+                usernameEditText.setError(null);
+                passwordEditText.setError(null);
+                if (mode == LOGIN_MODE) {
+                    processCredentials();
+                } else {
+                    setMode(LOGIN_MODE);
                 }
-                processCredentials(ProcessCredentialsTask.LOGIN);
             }
         });
 
-        Button signUpBtn = (Button) findViewById(R.id.signUpBtn);
         signUpBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (!isConnectedToInternet()) {
-                    final Snackbar deleted = Snackbar.make(findViewById(android.R.id.content),
-                            "No Internet Access", Snackbar.LENGTH_LONG);
-                    deleted.show();
-                    return;
+                usernameEditText.setError(null);
+                passwordEditText.setError(null);
+                if (mode == SIGNUP_MODE) {
+                    processCredentials();
+                } else {
+                    setMode(SIGNUP_MODE);
                 }
-                processCredentials(ProcessCredentialsTask.SIGN_UP);
             }
         });
     }
@@ -80,7 +108,14 @@ public class Login extends AppCompatActivity {
                 activeNetwork.isConnectedOrConnecting();
     }
 
-    private void processCredentials(int process) {
+    private void processCredentials() {
+        if (!isConnectedToInternet()) {
+            final Snackbar noInternet = Snackbar.make(findViewById(android.R.id.content),
+                    "No Internet Access", Snackbar.LENGTH_LONG);
+            noInternet.show();
+            return;
+        }
+
         if (processCredTask != null) {
             return;
         }
@@ -90,8 +125,25 @@ public class Login extends AppCompatActivity {
 
         String username = usernameEditText.getText().toString();
         String password = passwordEditText.getText().toString();
+
         boolean cancel = false;
         View focusView = null;
+
+        if (mode == SIGNUP_MODE) {
+            String retypedPassword = retypePasswordEditText.getText().toString();
+            if (TextUtils.isEmpty(retypedPassword)) {
+                retypePasswordEditText.setError(getString(R.string.please_retype_password));
+                focusView = retypePasswordEditText;
+                cancel = true;
+            }
+
+            if (!TextUtils.isEmpty(retypedPassword) && !retypedPassword.equals(password)) {
+                passwordEditText.setError(getString(R.string.passwords_dont_match));
+                retypePasswordEditText.setError(getString(R.string.passwords_dont_match));
+                focusView = passwordEditText;
+                cancel = true;
+            }
+        }
 
         if (TextUtils.isEmpty(password)) {
             passwordEditText.setError(getString(R.string.error_field_required));
@@ -121,7 +173,7 @@ public class Login extends AppCompatActivity {
             focusView.requestFocus();
         } else {
             showProgress(true);
-            processCredTask = new ProcessCredentialsTask(username, password, process);
+            processCredTask = new ProcessCredentialsTask(username, password);
             processCredTask.execute();
         }
     }
@@ -148,20 +200,17 @@ public class Login extends AppCompatActivity {
 
     private class ProcessCredentialsTask extends AsyncTask<Void, Void, JSONObject> {
 
-        public final static int LOGIN = 1, SIGN_UP = 2;
         private final String username;
         private final String password;
-        private final int processCode;
 
-        ProcessCredentialsTask(String username, String password, int processCode) {
+        ProcessCredentialsTask(String username, String password) {
             this.username = username;
             this.password = password;
-            this.processCode = processCode;
         }
 
         @Override
         protected JSONObject doInBackground(Void... params) {
-            if (processCode == LOGIN) {
+            if (mode == LOGIN_MODE) {
                 return validateAccount();
             }
             else {
