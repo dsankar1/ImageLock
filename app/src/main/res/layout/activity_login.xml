@@ -84,7 +84,7 @@
                     android:maxLength="20"
                     android:maxLines="1"
                     android:textColor="@color/colorAccent"
-                    android:textSize="14sp" />
+                    android:textSize="16sp" />
 
             </android.support.design.widget.TextInputLayout>
 
@@ -102,7 +102,7 @@
                     android:maxLength="20"
                     android:maxLines="1"
                     android:textColor="@color/colorAccent"
-                    android:textSize="14sp" />
+                    android:textSize="16sp" />
 
             </android.support.design.widget.TextInputLayout>
 
@@ -120,7 +120,7 @@
                     android:maxLength="20"
                     android:maxLines="1"
                     android:textColor="@color/colorAccent"
-                    android:textSize="14sp" />
+                    android:textSize="16sp" />
 
             </android.support.design.widget.TextInputLayout>
 

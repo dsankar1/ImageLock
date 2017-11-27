@@ -72,6 +72,7 @@ public class HttpService {
 
     private static void streamUrlContentToFile(URL url, File destination, String key) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        // AES/ECB/PKCS5Padding
         Key secretKey = new SecretKeySpec(key.getBytes(), "AES");
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
