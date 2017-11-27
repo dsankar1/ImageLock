@@ -8,13 +8,18 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import org.json.JSONObject;
@@ -28,6 +33,7 @@ public class Login extends AppCompatActivity {
     private EditText usernameEditText, passwordEditText, retypePasswordEditText;
     private ProgressBar loginProgressBar;
     private Button loginBtn, signUpBtn;
+    private ImageView logo;
     private View loginForm;
     private int mode;
 
@@ -41,11 +47,33 @@ public class Login extends AppCompatActivity {
         loginForm = findViewById(R.id.loginForm);
         loginBtn = (Button) findViewById(R.id.loginBtn);
         signUpBtn = (Button) findViewById(R.id.signUpBtn);
+        logo = (ImageView) findViewById(R.id.logo);
         loginProgressBar = (ProgressBar) findViewById(R.id.loginProgressBar);
         loginProgressBar.getIndeterminateDrawable()
                 .setColorFilter(Color.parseColor("#C3C3C3"), PorterDuff.Mode.MULTIPLY);
         setClickEvents();
         setMode(LOGIN_MODE);
+        final View activityRootView = findViewById(R.id.activityRoot);
+        activityRootView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                int heightDiff = activityRootView.getRootView().getHeight() - activityRootView.getHeight();
+                if (heightDiff > dpToPx(getApplicationContext(), 200)) { // if more than 200 dp, it's probably a keyboard...
+                    ConstraintLayout.LayoutParams lp = (ConstraintLayout.LayoutParams) logo.getLayoutParams();
+                    lp.setMargins(8, 50, 8, 0);
+                    logo.setLayoutParams(lp);
+                } else {
+                    ConstraintLayout.LayoutParams lp = (ConstraintLayout.LayoutParams) logo.getLayoutParams();
+                    lp.setMargins(8, 300, 8, 0);
+                    logo.setLayoutParams(lp);
+                }
+            }
+        });
+    }
+
+    public static float dpToPx(Context context, float valueInDp) {
+        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, valueInDp, metrics);
     }
 
     private void setMode(int mode) {

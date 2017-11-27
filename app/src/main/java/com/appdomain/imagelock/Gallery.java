@@ -360,7 +360,8 @@ public class Gallery extends AppCompatActivity {
             int deleted = 0;
             try {
                 for (File image : images) {
-                    boolean success = HttpService.deleteImage(image.getName(), token);
+                    String imageName = image.getName().substring(0, image.getName().lastIndexOf(".")) + ".encrypted";
+                    boolean success = HttpService.deleteImage(imageName, token);
                     if (success) {
                         image.delete();
                         deleted++;

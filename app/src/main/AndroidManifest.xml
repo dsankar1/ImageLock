@@ -28,15 +28,15 @@
         </provider>
 
         <activity
-            android:name=".Login">
+            android:name=".Login" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".Gallery" />
-        <activity android:name=".Image" />
+        <activity android:name=".Gallery" android:screenOrientation="portrait" />
+        <activity android:name=".Image" android:screenOrientation="portrait" />
     </application>
 
 </manifest>
